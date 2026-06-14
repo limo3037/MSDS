@@ -1,0 +1,109 @@
+---
+title: "NYPD Shooting Incidents"
+author: "Lia Moon"
+date: "2026-05-21"
+output:
+  pdf_document: default
+  html_document: default
+---
+This document reviews demographic data of perpetrators and victims of shooting incidents between 2006 to 2024 in New York City. A visualization for each data set will be analyzed and potential biases identified. In both visuals, invalid or unknown categorical entries were removed prior to analysis to ensure a more accurate representation of demographic distributions. Each facet grid categorizes their respective data set by their age, race, and sex over the years. Note the years are shortened to the last two digits for easier reading.Then a model of number of victims based on their age group over time will be analyzed to help identify whether there is a particular age group at higher risk of being a victim. Potential bias will also be accounted for.
+
+```{r Library}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(MASS)
+library(ggplot2)
+```
+```{r Import Data}
+url = "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+shoot = read_csv(url)
+
+shoot|>
+summarize(earliest = min(OCCUR_DATE, na.rm = TRUE),latest = max(OCCUR_DATE, na.rm = TRUE))
+
+shoot <- shoot|>
+mutate(OCCUR_DATE = mdy(OCCUR_DATE),
+Year = year(OCCUR_DATE))
+head(shoot$OCCUR_DATE)
+
+shoot <- shoot|>
+  mutate(Period = case_when(
+      Year >= 2006 & Year <= 2008 ~ "06-08",
+      Year >= 2009 & Year <= 2011 ~ "09-11",
+      Year >= 2012 & Year <= 2014 ~ "12-14",
+      Year >= 2015 & Year <= 2017 ~ "15-17",
+      Year >= 2018 & Year <= 2020 ~ "18-20",
+      Year >= 2021 & Year <= 2024 ~ "21-24"))
+```
+
+## Demographics of Perpetrators
+The majority of shooting perpetrators over the 18 year period are Black males between 18 to 44 years old. However, additional demographic data would be needed to fully interpret these findings. Information on New York City's population by age group, race, and sex would provide context for determining whether certain characteristics are disproportionately represented.
+
+For example, the relatively low number of female perpetrators could reflect a lower likelihood of women using firearms in violent incidents, or it could indicate they account for a significantly small percentage of the population. Similar considerations apply to racial demographics, as it is difficult to determine whether the higher proportion of Black perpetrators reflect the overall racial composition of the city or other contributing social, economic, or environmental factors. Likewise, if New York City is not a popular city for retirement, that could explain why there is almost no data for perpetrators older than 65 years. Otherwise, one could interpret that age group as older people are less violent compared to young adults.
+
+Furthermore, the circumstances around the shooting incidents should be considered when interpreting these trends. Different types of shootings, such as gang-related violence and school shootings, may have different demographic patterns and could significantly influence the demographic distributions of perpetrators. Thus, including these contexts would help provide a more comprehensive understanding of the observed trends.
+
+```{r Perpetrators}
+perp_tidy <- shoot|>
+dplyr::filter(!PERP_AGE_GROUP %in% c("1020", "1028","2021","224","940","NA", "UNKNOWN", "(null)", NA), !PERP_RACE %in% c("(null)", "UNKNOWN", NA), !PERP_SEX %in% c("(null)", "U", "NA", NA))
+perp_all <- perp_tidy|>
+dplyr::select(Period, PERP_AGE_GROUP, PERP_RACE, PERP_SEX)|>
+pivot_longer(cols = starts_with("PERP"), names_to = "Characteristic", values_to = "Category")
+
+ggplot(perp_all, aes(Category)) +
+geom_bar(fill = "steelblue") +
+facet_grid(Period ~ Characteristic, scales = "free") +
+labs(title = "Perpetrator Demographics 2006-2024", X = "", Y = "") +
+theme_minimal() +
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Demographics of Victims
+The demographic characteristics of shooting victims closely mirror the perpetrators', with Black males between the ages of 18 to 44 accounting for the largest group. However, there appears to be a higher proportion of female victims than female perpetrators. This highlights the importance of context surrounding the shootings. For example, if many of the incidents are related to gang violence, some female victims may be family members, partners, or bystanders rather than direct participants in the conflict. Alternatively, the disparity could reflect broader differences in patters of violence and victimization between males and females.
+
+This data set also shows Black individuals constitute the majority of shooting victims, raising important questions about contributing factors. Since Black individuals also make up the majority of perpetrators, racially motivated violence seems insufficient. Rather, the trend may indicate underlying social, economic, or environmental factors that increase exposure to violent crime within particular populations. Further investigation would be needed to shed light on specific causes driving these disparities.
+
+The age distribution of victims is also similar to perpetrators, however there is a slightly higher number of victims in the 25 to 44 age group. Multiple factors can contribute to this difference. Such as, individuals in this age range may have greater exposure to situations associated with gun violence due to their work, social environments, or community involvement. It is easy to attribute the lower number of older victims to a smaller elderly population, however, more demographic data is needed to determine whether population size or victimization risk better explains this pattern. Without additional context, it is difficult to draw firm conclusions about the reasons behind these age-related trends.
+
+```{r Victims}
+vic_tidy <- shoot|>
+dplyr::filter(!VIC_AGE_GROUP %in% c("1022", "UNKNOWN",NA), !VIC_RACE %in% c("UNKNOWN", NA), !VIC_SEX %in% c("U", NA))
+vic_all <- vic_tidy|>
+dplyr::select(Period, VIC_AGE_GROUP, VIC_RACE, VIC_SEX)|>
+pivot_longer(cols = starts_with("VIC"), names_to = "Characteristic", values_to = "Category")
+
+ggplot(vic_all, aes(Category)) +
+geom_bar(fill = "firebrick") +
+facet_grid(Period ~ Characteristic, scales = "free") +
+labs(title = "Victim Demographics 2006-2024", X = "", Y = "") +
+theme_minimal() +
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Model: How does the age of victims vary over time?
+This model shows the number of shooting victims by age group over time. The overall trends indicate that individuals between the ages of 25 and 44 consistently account for the majority of victims. While victims among those between 18 to 24 years old appear to have declined over the years, age groups outside the 18-to-44 range represent relatively few victims throughout the years.
+
+These patterns raise important questions about the factors influencing victim risk. The lower number of victims among older age groups does not necessarily imply that individuals in New York City rarely live beyond the age of 40. Rather, it may suggest that certain age groups are more frequently exposed to environments or circumstances associated with gun violence. Factors such as employment status, social networks, neighborhood characteristics, lifestyle patterns, and involvement in high-risk activities may contribute to the higher rates of victimization observed among adults between 25 and 44 years old.
+
+To better understand these trends, it would be important to compare victim counts with the city's population distribution across age groups. Without this context, it is difficult to determine whether the observed patterns reflect differences in population size or genuine differences in victimization risk. Additional information regarding the circumstances of the shootings would also help identify the underlying factors driving these trends.
+
+```{r Model}
+age_counts <- vic_tidy|>
+group_by(Year, VIC_AGE_GROUP)|>
+summarise(count = n(), .groups = "drop")
+model_age_time_int <- glm.nb(count ~ Year * VIC_AGE_GROUP, data = age_counts)
+summary(model_age_time_int)
+age_counts$pred <- predict(model_age_time_int, type = "response")
+ggplot(age_counts, aes(x = Year, y = count, color = VIC_AGE_GROUP)) +
+geom_line() +
+geom_line(aes(y = pred), linetype = "dashed") +
+labs(
+title = "Victim Age Groups Over Time",
+x = "Year",
+y = "Number of Victims",
+color = "Age Group"
+) +
+theme_minimal()
+```
